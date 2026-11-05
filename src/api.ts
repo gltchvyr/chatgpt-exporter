@@ -757,26 +757,6 @@ export async function fetchAllConversationsAll(
     }
 }
 
-export async function archiveConversation(chatId: string): Promise<boolean> {
-    const url = conversationApi(chatId)
-    const { success } = await fetchApi<{ success: boolean }>(url, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_archived: true }),
-    })
-    return success
-}
-
-export async function deleteConversation(chatId: string): Promise<boolean> {
-    const url = conversationApi(chatId)
-    const { success } = await fetchApi<{ success: boolean }>(url, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_visible: false }),
-    })
-    return success
-}
-
 /**
  * Thrown when the API responds with 429 Too Many Requests.
  * Carries the wait time from the `Retry-After` header (or a safe default).
