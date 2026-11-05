@@ -1,6 +1,6 @@
 import preact from '@preact/preset-vite'
 import { defineConfig } from 'vite'
-import monkey, { cdn } from 'vite-plugin-monkey'
+import monkey from 'vite-plugin-monkey'
 import packageJson from './package.json' with { type: 'json' }
 
 // https://vitejs.dev/config/
@@ -56,14 +56,7 @@ export default defineConfig({
             },
             build: {
                 fileName: 'chatgpt.user.js',
-                externalGlobals: [
-                    // Keep jszip at 3.9.1. From 3.10.0 its setImmediate polyfill
-                    // checks `event.source === self`, which never holds in a
-                    // userscript sandbox, so generateAsync never resolves.
-                    ['jszip', cdn.jsdelivr('JSZip', 'dist/jszip.min.js')],
-                    // SnapDOM's IIFE exposes its named export as window.snapdom.
-                    ['@zumer/snapdom', cdn.jsdelivr('window', 'dist/snapdom.js')],
-                ],
+                // Archive build: bundle dependencies into the userscript so no remote executable code is loaded at runtime.
                 // Serialized into the bundle and run in the page, so it must be self-contained.
                 cssSideEffects: (css: string) => {
                     const style = document.createElement('style')
