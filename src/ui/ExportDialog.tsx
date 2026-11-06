@@ -37,12 +37,6 @@ const conversationCache = new Map<string, { updateTime: ApiConversationItem['upd
  */
 let listCache: { limit: number, items: ApiConversationItem[], hasMore: boolean, total: number | null } | null = null
 
-function dropFromListCache(removed: ApiConversationItem[]) {
-    if (!listCache) return
-    const ids = new Set(removed.map(c => c.id))
-    listCache = { ...listCache, items: listCache.items.filter(c => !ids.has(c.id)) }
-}
-
 /** Cap on how many skipped titles the end-of-export alert lists */
 const MAX_SKIPPED_SHOWN = 20
 
@@ -526,8 +520,6 @@ const DialogContent: FC<DialogContentProps> = ({ format, onClose }) => {
         return () => off()
     }, [requestQueue])
 
-
-
     useEffect(() => {
         const off = requestQueue.on('done', async (results) => {
             // If the user cancelled, just stop — don't download or start the next batch
@@ -565,8 +557,6 @@ const DialogContent: FC<DialogContentProps> = ({ format, onClose }) => {
         })
         return () => off()
     }, [requestQueue, exportAllOptions, exportType, format, metaList, startApiBatch, selectedProject, t])
-
-
 
     const cancelExport = useCallback(() => {
         cancelledRef.current = true
@@ -612,7 +602,6 @@ const DialogContent: FC<DialogContentProps> = ({ format, onClose }) => {
     const exportAll = useMemo(() => {
         return exportSource === 'API' ? exportAllFromApi : exportAllFromLocal
     }, [exportSource, exportAllFromApi, exportAllFromLocal])
-
 
     // Cancel any in-flight work when the dialog unmounts to avoid stale-state errors
     useEffect(() => {
