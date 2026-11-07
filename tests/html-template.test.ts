@@ -26,6 +26,14 @@ describe('fillTemplate', () => {
         const html = fillTemplate(template, Object.fromEntries(names.map(name => [name, `<${name}>`])))
         expect(html).not.toMatch(/\{\{\w+\}\}/)
     })
+
+    it('is offline by construction', () => {
+        const template = readFileSync(new URL('../src/template.html', import.meta.url), 'utf8')
+        expect(template).not.toMatch(/<script[^>]+src=/i)
+        expect(template).not.toMatch(/<link[^>]+(?:stylesheet|icon)/i)
+        expect(template).toContain('connect-src \'none\'')
+        expect(template).toContain('default-src \'none\'')
+    })
 })
 
 describe('metaDetailsHtml', () => {

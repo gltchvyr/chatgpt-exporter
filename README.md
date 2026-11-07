@@ -1,5 +1,14 @@
 <h1 align="center">ChatGPT Exporter</h1>
 
+> **Archive-build note (`archive-hardening` branch):** this fork is read-only.
+> Archive and delete actions and their PATCH request paths are removed. The
+> committed `dist/chatgpt.user.js` is rebuilt from this branch with dependencies
+> bundled, so it has no remote `@require` scripts. Generated HTML is also
+> offline by construction: it has no remote stylesheet/script/icon loads and
+> carries a content-security policy that forbids network connections. For an
+> immutable archive master, use **Official JSON** and preserve the first
+> downloaded file unchanged.
+
 <div align="center">
 
 ## A GreasyFork script to export the chat history of [ChatGPT](https://chatgpt.com/)

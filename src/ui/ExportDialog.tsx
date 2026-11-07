@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import type { ChangeEvent } from 'preact/compat'
 import i18n, { useTranslation } from '../i18n'
-import { RateLimitError, archiveConversation, deleteConversation, fetchAllConversations, fetchConversation, fetchConversationsPage, fetchProjects, probeApi, withImageAssets } from '../api'
+import { RateLimitError, fetchAllConversations, fetchConversation, fetchConversationsPage, fetchProjects, probeApi, withImageAssets } from '../api'
 import { EXPORT_OPERATION_BATCH, KEY_EXPORTED_UPDATE_TIMES } from '../constants'
 import { exportAllToHtml } from '../exporter/html'
 import { exportAllToJson, exportAllToOfficialJson, exportAllToTavern } from '../exporter/json'
@@ -36,12 +36,6 @@ const conversationCache = new Map<string, { updateTime: ApiConversationItem['upd
  * cached: they page by cursor, so the head refresh does not apply as is.
  */
 let listCache: { limit: number, items: ApiConversationItem[], hasMore: boolean, total: number | null } | null = null
-
-function dropFromListCache(removed: ApiConversationItem[]) {
-    if (!listCache) return
-    const ids = new Set(removed.map(c => c.id))
-    listCache = { ...listCache, items: listCache.items.filter(c => !ids.has(c.id)) }
-}
 
 /** Cap on how many skipped titles the end-of-export alert lists */
 const MAX_SKIPPED_SHOWN = 20
@@ -448,8 +442,6 @@ const DialogContent: FC<DialogContentProps> = ({ format, onClose }) => {
     const [totalAvailable, setTotalAvailable] = useState<number | null>(null)
 
     const requestQueue = useMemo(() => new RequestQueue<ApiConversationWithId>(200, 1600), [])
-    const archiveQueue = useMemo(() => new RequestQueue<boolean>(200, 1600), [])
-    const deleteQueue = useMemo(() => new RequestQueue<boolean>(200, 1600), [])
 
     const [progress, setProgress] = useState({
         total: 0,
@@ -529,22 +521,6 @@ const DialogContent: FC<DialogContentProps> = ({ format, onClose }) => {
     }, [requestQueue])
 
     useEffect(() => {
-        const off = archiveQueue.on('progress', (prog) => {
-            setProcessing(true)
-            setProgress({ ...prog, rateLimitWaitSecs: prog.rateLimitWaitSecs, batchIndex: 0, totalBatches: 0 })
-        })
-        return () => off()
-    }, [archiveQueue])
-
-    useEffect(() => {
-        const off = deleteQueue.on('progress', (prog) => {
-            setProcessing(true)
-            setProgress({ ...prog, rateLimitWaitSecs: prog.rateLimitWaitSecs, batchIndex: 0, totalBatches: 0 })
-        })
-        return () => off()
-    }, [deleteQueue])
-
-    useEffect(() => {
         const off = requestQueue.on('done', async (results) => {
             // If the user cancelled, just stop — don't download or start the next batch
             if (cancelledRef.current) {
@@ -582,34 +558,10 @@ const DialogContent: FC<DialogContentProps> = ({ format, onClose }) => {
         return () => off()
     }, [requestQueue, exportAllOptions, exportType, format, metaList, startApiBatch, selectedProject, t])
 
-    useEffect(() => {
-        const off = archiveQueue.on('done', () => {
-            setProcessing(false)
-            setApiConversations(prev => prev.filter(c => !selected.some(s => s.id === c.id)))
-            dropFromListCache(selected)
-            setSelected([])
-            alert(t('Conversation Archived Message'))
-        })
-        return () => off()
-    }, [archiveQueue, selected, t])
-
-    useEffect(() => {
-        const off = deleteQueue.on('done', () => {
-            setProcessing(false)
-            setApiConversations(prev => prev.filter(c => !selected.some(s => s.id === c.id)))
-            dropFromListCache(selected)
-            setSelected([])
-            alert(t('Conversation Deleted Message'))
-        })
-        return () => off()
-    }, [deleteQueue, selected, t])
-
     const cancelExport = useCallback(() => {
         cancelledRef.current = true
         requestQueue.stop()
-        archiveQueue.stop()
-        deleteQueue.stop()
-    }, [requestQueue, archiveQueue, deleteQueue])
+    }, [requestQueue])
 
     const exportAllFromApi = useCallback(() => {
         if (disabled) return
@@ -651,26 +603,6 @@ const DialogContent: FC<DialogContentProps> = ({ format, onClose }) => {
         return exportSource === 'API' ? exportAllFromApi : exportAllFromLocal
     }, [exportSource, exportAllFromApi, exportAllFromLocal])
 
-    const deleteAll = useCallback(() => {
-        if (disabled) return
-        if (!confirm(t('Conversation Delete Alert'))) return
-        deleteQueue.clear()
-        selected.forEach(({ id, title }) => {
-            deleteQueue.add({ name: title, request: () => deleteConversation(id) })
-        })
-        deleteQueue.start()
-    }, [disabled, selected, deleteQueue, t])
-
-    const archiveAll = useCallback(() => {
-        if (disabled) return
-        if (!confirm(t('Conversation Archive Alert'))) return
-        archiveQueue.clear()
-        selected.forEach(({ id, title }) => {
-            archiveQueue.add({ name: title, request: () => archiveConversation(id) })
-        })
-        archiveQueue.start()
-    }, [disabled, selected, archiveQueue, t])
-
     // Cancel any in-flight work when the dialog unmounts to avoid stale-state errors
     useEffect(() => {
         const genRef = fetchGenRef
@@ -678,10 +610,8 @@ const DialogContent: FC<DialogContentProps> = ({ format, onClose }) => {
             exportingRef.current = false
             genRef.current++
             requestQueue.clear()
-            archiveQueue.clear()
-            deleteQueue.clear()
         }
-    }, [requestQueue, archiveQueue, deleteQueue])
+    }, [requestQueue])
 
     // Sync processing flag so ExportDialog can gate ESC / outside-click
     useEffect(() => {
@@ -919,12 +849,7 @@ const DialogContent: FC<DialogContentProps> = ({ format, onClose }) => {
                     ))}
                 </select>
                 <div className="ce-action-buttons">
-                    <button className="ce-button ce-button-red" disabled={disabled || exportSource === 'Local'} onClick={archiveAll}>
-                        {t('Archive')}
-                    </button>
-                    <button className="ce-button ce-button-red" disabled={disabled || exportSource === 'Local'} onClick={deleteAll}>
-                        {t('Delete')}
-                    </button>
+
                     <button className="ce-button ce-button-green" disabled={disabled} onClick={exportAll}>
                         {t('Export')}
                     </button>
